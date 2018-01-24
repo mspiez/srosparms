@@ -158,6 +158,67 @@ class ServiceSlicing(object):
         static_routes = re.findall('{}({})'.format(space, content), config_section)
         return static_routes
 
+    def bgp_sect(self, spaces, config_section):
+        bgp_sect = self._find_section(spaces, 'bgp', config_section)
+        return bgp_sect
+
+    def bgp_parms(self, spaces, bgp_sect):
+        '''returns all bgp paramters'''
+        space = '[\r\n]+[ ]{{{}}}'.format(spaces + 4)
+        bgp_vpn_im = self._search_func('{}vpn-apply-import'.format(space), bgp_sect)
+        bgp_vpn_ex = self._search_func('{}vpn-apply-export'.format(space), bgp_sect)
+        return {'vpn-apply-import': bgp_vpn_im,
+                'vpn-apply-export': bgp_vpn_ex}
+
+    def bgp_groups(self, bgp_sect):
+        bgp_group_list = re.findall('group "(.*)"', bgp_sect)
+        return bgp_group_list
+
+    def bgp_group_parms(self, spaces, bgp_group_list, bgp_sect):
+        '''returns dictionary of all BGP groups and related parameters'''
+        bgp_gr_dict = {}
+        for b_group in bgp_group_list:
+            space = '[\r\n]+[ ]{{{}}}'.format(spaces+4)
+            group_sect = self.bgp_group_sect(spaces, bgp_sect, b_group)
+            # g_name = b_group
+            g_family = self._search_func('{}family (.*)'.format(space), group_sect)
+            g_type = self._search_func('{}type (.*)'.format(space), group_sect)
+            g_export = self._search_func('{}export (.*)'.format(space), group_sect)
+            g_neighbors = re.findall('{}neighbor (\d+.\d+.\d+.\d+)'.format(space), group_sect)
+            bgp_gr_dict.update({b_group: {
+                # 'name': g_name,
+                'family': g_family,
+                'type': g_type,
+                'export': g_export,
+                'neighbors': g_neighbors
+            }})
+        if bgp_gr_dict:
+            return bgp_gr_dict
+
+    def bgp_group_sect(self, spaces, bgp_sect, b_group):
+        group_sect = self._find_section(spaces, 'group', bgp_sect, '"{}"'.format(b_group))
+        return group_sect
+
+    def bgp_neighbor_parms(self, spaces, bgp_neighbor_list, group_sect):
+        '''returns dictionary of all BGP neighbors and related parameters'''
+        neighbor_dict = {}
+        for neighbor in bgp_neighbor_list:
+            space = '[\r\n]+[ ]{{{}}}'.format(spaces+4)
+            neighbor_sect = self._find_section(spaces, 'neighbor', group_sect, '{}'.format(neighbor))
+            print neighbor_sect
+            neighbor_family = self._search_func('{}family (.*)'.format(space), neighbor_sect)
+            neighbor_type = self._search_func('{}type (.*)'.format(space), neighbor_sect)
+            neighbor_export = self._search_func('{}export (.*)'.format(space), neighbor_sect)
+            neighbor_peer = self._search_func('{}peer-as (.*)'.format(space), neighbor_sect)
+            neighbor_dict.update({neighbor: {
+                'family': neighbor_family,
+                'type': neighbor_type,
+                'export': neighbor_export,
+                'peer-as': neighbor_peer
+            }})
+        if neighbor_dict:
+            return neighbor_dict
+
 class VprnParms(ServiceSlicing):
     def __init__(self, service_section):
         self.service_section = service_section
@@ -251,21 +312,3 @@ class VprnParms(ServiceSlicing):
             return iface_dict
 
 
-if __name__ == '__main__':
-    with open('helpa1.cfg') as f:
-        con = f.read()
-        conf = ServiceSlicing(con)
-        svc_sect = conf._svc_sect_slice()
-        print svc_sect[:100]
-        print conf.system_ip()
-        v_con = VprnParms(svc_sect)
-        print v_con.vprn_list(svc_sect)[0]
-        print len(v_con.vprn_list(svc_sect))
-        print v_con.vprn_list(svc_sect).count('14851')
-        print len(set(v_con.vprn_list(svc_sect)))
-        vprn_sect = v_con.vprn_section('1048', svc_sect)
-        print vprn_sect
-        print json.dumps(v_con.vprn_parms(['1048'], vprn_sect), indent=4)
-        print json.dumps(v_con.iface_parms(['ge2/1/9:2025'], vprn_sect), indent=4)
-        print json.dumps(v_con.static_routes(12, vprn_sect), indent=4)
-        print json.dumps(conf.static_routes(8, con), indent=4)
