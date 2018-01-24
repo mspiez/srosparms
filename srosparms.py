@@ -151,7 +151,6 @@ class ServiceSlicing(object):
             if sap_dict:
                 return sap_dict
 
-
 class VprnParms(ServiceSlicing):
     def __init__(self, service_section):
         self.service_section = service_section
@@ -243,25 +242,3 @@ class VprnParms(ServiceSlicing):
             }})
         if iface_dict:
             return iface_dict
-
-
-
-
-
-if __name__ == '__main__':
-    with open('helpa1.cfg') as f:
-        con = f.read()
-        conf = ServiceSlicing(con)
-        svc_sect = conf._svc_sect_slice()
-        print svc_sect[:100]
-        print conf.system_ip()
-        v_con = VprnParms(svc_sect)
-        print v_con.vprn_list(svc_sect)[0]
-        print len(v_con.vprn_list(svc_sect))
-        print v_con.vprn_list(svc_sect).count('14851')
-        print len(set(v_con.vprn_list(svc_sect)))
-        vprn_sect = v_con.vprn_section('1048', svc_sect)
-        print vprn_sect
-        print json.dumps(v_con.vprn_parms(['1048'], vprn_sect), indent=4)
-        print json.dumps(v_con.iface_parms(['ge2/1/9:2025'], vprn_sect), indent=4)
-
