@@ -1,0 +1,10 @@
+*pyc
+*cfg
+_slicing.py
+.idea/
+README.md
+_slicing.py
+sros_to_json.py
+test.py
+test_sros_to_json.py
+venv/
