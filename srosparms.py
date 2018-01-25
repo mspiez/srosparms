@@ -151,6 +151,42 @@ class ServiceSlicing(object):
             if sap_dict:
                 return sap_dict
 
+    def sdp_using_list(self, service_sect):
+        '''returns all vpls IDs configured on the node'''
+        sdp_list = re.findall('[\r\n]+[ ]{12}((?:(?:mesh)|(?:spoke))-sdp.* create)', service_sect)
+        return sdp_list
+
+    def sdp_using_parms(self, sdp_list, svc_sect):
+        '''returns dictionary of SAP parameters'''
+        sdp_dict = {}
+        for sdp in sdp_list:
+            s_id = self._search_func('-sdp (\d+:\d+)', sdp)
+            sdp_id = s_id.split(':')[0]
+            sdp_vc_id = s_id.split(':')[1]
+            sdp_type = self._search_func('(\S+)-sdp \d+:\d+', sdp)
+            sdp_vc_type = self._search_func('\d+:\d+ vc-type (\S+)', sdp)
+            sdp_r_l_t = self._search_func('\d+:\d+.*(root-leaf-tag)', sdp)
+            sdp_leaf = self._search_func('\d+:\d+.*(leaf-ac)', sdp)
+            sdp_end = self._search_func('-sdp[ ]\d+:\d+.*endpoint "(.*)"', sdp)
+            sdp_options = self._search_func('-sdp \d+:\d+[ ](.*)[ ]create', sdp)
+            sdp_sect = self._find_section(16, sdp, svc_sect)
+            sdp_desc = self._search_func('[\r\n]+[ ]{16}description "(.*)"', sdp_sect)
+            sdp_state = self._search_func('[\r\n]+[ ]{16}(no shutdown)', sdp_sect)
+            sdp_dict.update({s_id: {
+                'sdp_id': sdp_id,
+                'sdp_vc_id': sdp_vc_id,
+                'sdp_type': sdp_type,
+                'sdp_vc_type': sdp_vc_type,
+                'sdp_root_l_t': sdp_r_l_t,
+                'sdp_leaf': sdp_leaf,
+                'sdp_endpoint': sdp_end,
+                'sdp_options': sdp_options,
+                'sdp_desc': sdp_desc,
+                'state': sdp_state
+            }})
+        if sdp_dict:
+            return sdp_dict
+
     def static_routes(self, spaces, config_section):
         '''returns all static routes configured on the config_section'''
         space = '[\r\n]+[ ]{{{}}}'.format(spaces)
@@ -205,7 +241,6 @@ class ServiceSlicing(object):
         for neighbor in bgp_neighbor_list:
             space = '[\r\n]+[ ]{{{}}}'.format(spaces+4)
             neighbor_sect = self._find_section(spaces, 'neighbor', group_sect, '{}'.format(neighbor))
-            print neighbor_sect
             neighbor_family = self._search_func('{}family (.*)'.format(space), neighbor_sect)
             neighbor_type = self._search_func('{}type (.*)'.format(space), neighbor_sect)
             neighbor_export = self._search_func('{}export (.*)'.format(space), neighbor_sect)
@@ -257,8 +292,8 @@ class VprnParms(ServiceSlicing):
                 'description': vprn_desc,
                 'customer': vprn_cust,
                 'service-name': vprn_name,
-                'vrf-import': re.findall('"(.*?)"',vprn_import),
-                'vrf-export': re.findall('"(.*?)"',vprn_export),
+                'vrf-import': re.findall('"(.*?)"', vprn_import),
+                'vrf-export': re.findall('"(.*?)"', vprn_export),
                 'as': vprn_as,
                 'rd': vprn_rd,
                 'vrf-target': vprn_target,
@@ -312,3 +347,88 @@ class VprnParms(ServiceSlicing):
             return iface_dict
 
 
+class VplsParms(ServiceSlicing):
+    def __init__(self, service_section):
+        self.service_section = service_section
+
+    def vpls_list(self, service_section):
+        '''returns all vpls IDs configured on the node'''
+        vpls_ids = re.findall('[\r\n]+[ ]{8}vpls (\d+) customer', service_section)
+        return vpls_ids
+
+    def vpls_section(self, vpls_id, service_section):
+        vpls_sect = self._find_section(8, 'vpls', service_section, vpls_id)
+        return vpls_sect
+
+    def vpls_parms(self, vpls_list, vpls_sect):
+        '''returns dictionary of all vpls-s and related parameters'''
+        vpls_dict = {}
+        for vpls_id in vpls_list:
+            vpls_cust = self._search_func('vpls \d+ customer (\d+)', vpls_sect)
+            vpls_desc = self._search_func('[\r\n]+[ ]{12}description "(.*)"', vpls_sect)
+            vpls_name = self._search_func('[\r\n]+[ ]{12}service-name "(.*)"', vpls_sect)
+            vpls_fdb_size = self._search_func('[\r\n]+[ ]{12}fdb-table-size (.*)', vpls_sect)
+            vpls_local_age = self._search_func('[\r\n]+[ ]{12}local-age (.*)', vpls_sect)
+            vpls_remote_age = self._search_func('[\r\n]+[ ]{12}remote-age (\d+)', vpls_sect)
+            stp_sect = self._find_section(12, 'stp', vpls_sect)
+            stp_state = self._search_func('[\r\n]+[ ]{12}(no shutdown)', stp_sect)
+            vpls_s_f_o_failure = self._search_func('[\r\n]+[ ]{12}(send-flush-on-failure)', vpls_sect)
+            vpls_sdps = re.findall('[\r\n]+[ ]{12}vrf-target (.*)', vpls_sect)
+            vpls_autobind = self._search_func('[\r\n]+[ ]{12}auto-bind (.*)', vpls_sect)
+            vpls_res_filter = self._search_func('[\r\n]+[ ]{12}(resolution-filter)', vpls_sect)
+            vpls_res_gre = self._search_func('[\r\n]+[ ]{20}(gre)', vpls_sect)
+            vpls_res_ldp = self._search_func('[\r\n]+[ ]{20}(ldp)', vpls_sect)
+            vpls_res_rsvp = self._search_func('[\r\n]+[ ]{20}(rsvp)', vpls_sect)
+            vpls_dict.update({vpls_id: {
+                'description': vpls_desc,
+                'customer': vpls_cust,
+                'service-name': vpls_name,
+                'vrf-import': re.findall('"(.*?)"',vpls_import),
+                'vrf-export': re.findall('"(.*?)"',vpls_export),
+                'as': vpls_as,
+                'rd': vpls_rd,
+                'vrf-target': vpls_target,
+                'autobind': vpls_autobind,
+                'res_filter': vpls_res_filter,
+                'res_gre': vpls_res_gre,
+                'res_ldp': vpls_res_ldp,
+                'res_rsvp': vpls_res_rsvp,
+            }})
+        if vpls_dict:
+            return vpls_dict
+
+
+if __name__ == '__main__':
+    with open('espbem-11-abr1.fi.cfg') as f:
+        con = f.read()
+        conf = ServiceSlicing(con)
+        svc_sect = conf._svc_sect_slice()
+        # print svc_sect[:100]
+        # print conf.system_ip()
+        # v_con = VprnParms(svc_sect)
+        # print v_con.vprn_list(svc_sect)[0]
+        # print len(v_con.vprn_list(svc_sect))
+        # print v_con.vprn_list(svc_sect).count('14851')
+        # print len(set(v_con.vprn_list(svc_sect)))
+        # vprn_sect = v_con.vprn_section('1048', svc_sect)
+        # print vprn_sect
+        # print json.dumps(v_con.vprn_parms(['1048'], vprn_sect), indent=4)
+        # print json.dumps(v_con.iface_parms(['ge2/1/9:2025'], vprn_sect), indent=4)
+        # print json.dumps(v_con.static_routes(12, vprn_sect), indent=4)
+        # print json.dumps(conf.static_routes(8, con), indent=4)
+
+        # bgp_sect = v_con.bgp_sect(12, vprn_sect)
+        # print json.dumps(v_con.bgp_parms(12, bgp_sect), indent=4)
+        # print json.dumps(v_con.bgp_groups(bgp_sect), indent=4)
+        # print json.dumps(v_con.bgp_group_parms(16, ['asr1-veolia-transport'], bgp_sect), indent=4)
+        #
+        # bgp_group_sect = v_con.bgp_group_sect(16, bgp_sect, 'asr1-veolia-transport')
+        # bgp_neighbors = v_con.bgp_group_parms(16, ['asr1-veolia-transport'], bgp_sect)
+        # b = bgp_neighbors['asr1-veolia-transport']['neighbors']
+        # print json.dumps(v_con.bgp_neighbor_parms(20, b, bgp_group_sect))
+
+        vp_con = VplsParms(svc_sect)
+        vp_sect = vp_con.vpls_section('9001706' , svc_sect)
+        print json.dumps(vp_con.sdp_using_list(vp_sect), indent=4)
+        l = vp_con.sdp_using_list(vp_sect)
+        print json.dumps(vp_con.sdp_using_parms(l, vp_sect), indent=4)
