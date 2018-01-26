@@ -136,10 +136,10 @@ class ServiceSlicing(object):
                 filter_egress = self._search_func('[\r\n]+[ ]{24}filter (.*)', egress_sec)
                 sap_state = self._search_func('[\r\n]+[ ]{20}(no shutdown)', sap_sect)
                 sap_dict.update({sap: {
-                    'sap_id': sap,
-                    'sap_port': sap_port,
-                    'sap_vlan': sap_vlan,
-                    'sap_desc': sap_desc,
+                    'id': sap,
+                    'port': sap_port,
+                    'vlan': sap_vlan,
+                    'description': sap_desc,
                     'qos_ingress': qos_ingress,
                     'sched_ingress': sched_ingress,
                     'filter_ingress': filter_ingress,
@@ -153,7 +153,7 @@ class ServiceSlicing(object):
 
     def sdp_using_list(self, service_sect):
         '''returns all vpls IDs configured on the node'''
-        sdp_list = re.findall('[\r\n]+[ ]{12}((?:(?:mesh)|(?:spoke))-sdp.* create)', service_sect)
+        sdp_list = re.findall('[\r\n]+[ ]{12}((?:(?:mesh)|(?:spoke))-sdp.*) create', service_sect)
         return sdp_list
 
     def sdp_using_parms(self, sdp_list, svc_sect):
@@ -167,21 +167,23 @@ class ServiceSlicing(object):
             sdp_vc_type = self._search_func('\d+:\d+ vc-type (\S+)', sdp)
             sdp_r_l_t = self._search_func('\d+:\d+.*(root-leaf-tag)', sdp)
             sdp_leaf = self._search_func('\d+:\d+.*(leaf-ac)', sdp)
+            sdp_shg = self._search_func('-sdp[ ]\d+:\d+.*split-horizon-group "(.*)"', sdp)
             sdp_end = self._search_func('-sdp[ ]\d+:\d+.*endpoint "(.*)"', sdp)
-            sdp_options = self._search_func('-sdp \d+:\d+[ ](.*)[ ]create', sdp)
-            sdp_sect = self._find_section(16, sdp, svc_sect)
+            sdp_options = self._search_func('-sdp \d+:\d+[ ](.*)', sdp)
+            sdp_sect = self._find_section(12, sdp, svc_sect)
             sdp_desc = self._search_func('[\r\n]+[ ]{16}description "(.*)"', sdp_sect)
             sdp_state = self._search_func('[\r\n]+[ ]{16}(no shutdown)', sdp_sect)
             sdp_dict.update({s_id: {
-                'sdp_id': sdp_id,
-                'sdp_vc_id': sdp_vc_id,
-                'sdp_type': sdp_type,
-                'sdp_vc_type': sdp_vc_type,
-                'sdp_root_l_t': sdp_r_l_t,
-                'sdp_leaf': sdp_leaf,
-                'sdp_endpoint': sdp_end,
-                'sdp_options': sdp_options,
-                'sdp_desc': sdp_desc,
+                'id': sdp_id,
+                'vc-id': sdp_vc_id,
+                'type': sdp_type,
+                'vc-type': sdp_vc_type,
+                'root-l-t': sdp_r_l_t,
+                'leaf': sdp_leaf,
+                'shg': sdp_shg,
+                'endpoint': sdp_end,
+                'options': sdp_options,
+                'description': sdp_desc,
                 'state': sdp_state
             }})
         if sdp_dict:
@@ -370,29 +372,27 @@ class VplsParms(ServiceSlicing):
             vpls_fdb_size = self._search_func('[\r\n]+[ ]{12}fdb-table-size (.*)', vpls_sect)
             vpls_local_age = self._search_func('[\r\n]+[ ]{12}local-age (.*)', vpls_sect)
             vpls_remote_age = self._search_func('[\r\n]+[ ]{12}remote-age (\d+)', vpls_sect)
+            vpls_end = self._search_func('[\r\n]+[ ]{12}endpoint "(.*)" create', vpls_sect)
+            end_sect = self._find_section(12, 'endpoint', vpls_sect)
+            end_signaling = self._search_func('[\r\n]+[ ]{16}(.*suppress-standby-signaling)', end_sect)
+            end_revert = self._search_func('[\r\n]+[ ]{16}revert-time (.*)', end_sect)
             stp_sect = self._find_section(12, 'stp', vpls_sect)
             stp_state = self._search_func('[\r\n]+[ ]{12}(no shutdown)', stp_sect)
             vpls_s_f_o_failure = self._search_func('[\r\n]+[ ]{12}(send-flush-on-failure)', vpls_sect)
-            vpls_sdps = re.findall('[\r\n]+[ ]{12}vrf-target (.*)', vpls_sect)
-            vpls_autobind = self._search_func('[\r\n]+[ ]{12}auto-bind (.*)', vpls_sect)
-            vpls_res_filter = self._search_func('[\r\n]+[ ]{12}(resolution-filter)', vpls_sect)
-            vpls_res_gre = self._search_func('[\r\n]+[ ]{20}(gre)', vpls_sect)
-            vpls_res_ldp = self._search_func('[\r\n]+[ ]{20}(ldp)', vpls_sect)
-            vpls_res_rsvp = self._search_func('[\r\n]+[ ]{20}(rsvp)', vpls_sect)
+            vpls_sdps = re.findall('[\r\n]+[ ]{12}((?:(?:mesh)|(?:spoke))-sdp.*) create', vpls_sect)
             vpls_dict.update({vpls_id: {
-                'description': vpls_desc,
                 'customer': vpls_cust,
+                'description': vpls_desc,
                 'service-name': vpls_name,
-                'vrf-import': re.findall('"(.*?)"',vpls_import),
-                'vrf-export': re.findall('"(.*?)"',vpls_export),
-                'as': vpls_as,
-                'rd': vpls_rd,
-                'vrf-target': vpls_target,
-                'autobind': vpls_autobind,
-                'res_filter': vpls_res_filter,
-                'res_gre': vpls_res_gre,
-                'res_ldp': vpls_res_ldp,
-                'res_rsvp': vpls_res_rsvp,
+                'fdb-size': vpls_fdb_size,
+                'local-age': vpls_local_age,
+                'remote-age': vpls_remote_age,
+                'endpoint': vpls_end,
+                'standby-signal': end_signaling,
+                'revert-time': end_revert,
+                'stp_state': stp_state,
+                'send-flush': vpls_s_f_o_failure,
+                'sdp-s': vpls_sdps
             }})
         if vpls_dict:
             return vpls_dict
@@ -429,6 +429,8 @@ if __name__ == '__main__':
 
         vp_con = VplsParms(svc_sect)
         vp_sect = vp_con.vpls_section('9001706' , svc_sect)
-        print json.dumps(vp_con.sdp_using_list(vp_sect), indent=4)
+        # print json.dumps(vp_con.sdp_using_list(vp_sect), indent=4)
         l = vp_con.sdp_using_list(vp_sect)
         print json.dumps(vp_con.sdp_using_parms(l, vp_sect), indent=4)
+        print json.dumps(vp_con.vpls_parms(['9001706'], vp_sect), indent=4)
+
