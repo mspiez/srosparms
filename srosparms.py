@@ -113,6 +113,12 @@ class ServiceSlicing(object):
         if sdp_dict:
             return sdp_dict
 
+    def svc_type(self, svc_id, service_section):
+        space = '[\r\n]+[ ]{8}'
+        expression = '(\w+)[ ]{}'.format(svc_id)
+        svc_type = self._search_func('{}{}'.format(space, expression), service_section)
+        return svc_type
+
     def sap_parms(self, sap_list, svc_sect):
         '''returns dictionary of SAP parameters'''
         sap_dict = {}
@@ -396,41 +402,4 @@ class VplsParms(ServiceSlicing):
             }})
         if vpls_dict:
             return vpls_dict
-
-
-if __name__ == '__main__':
-    with open('espbem-11-abr1.fi.cfg') as f:
-        con = f.read()
-        conf = ServiceSlicing(con)
-        svc_sect = conf._svc_sect_slice()
-        # print svc_sect[:100]
-        # print conf.system_ip()
-        # v_con = VprnParms(svc_sect)
-        # print v_con.vprn_list(svc_sect)[0]
-        # print len(v_con.vprn_list(svc_sect))
-        # print v_con.vprn_list(svc_sect).count('14851')
-        # print len(set(v_con.vprn_list(svc_sect)))
-        # vprn_sect = v_con.vprn_section('1048', svc_sect)
-        # print vprn_sect
-        # print json.dumps(v_con.vprn_parms(['1048'], vprn_sect), indent=4)
-        # print json.dumps(v_con.iface_parms(['ge2/1/9:2025'], vprn_sect), indent=4)
-        # print json.dumps(v_con.static_routes(12, vprn_sect), indent=4)
-        # print json.dumps(conf.static_routes(8, con), indent=4)
-
-        # bgp_sect = v_con.bgp_sect(12, vprn_sect)
-        # print json.dumps(v_con.bgp_parms(12, bgp_sect), indent=4)
-        # print json.dumps(v_con.bgp_groups(bgp_sect), indent=4)
-        # print json.dumps(v_con.bgp_group_parms(16, ['asr1-veolia-transport'], bgp_sect), indent=4)
-        #
-        # bgp_group_sect = v_con.bgp_group_sect(16, bgp_sect, 'asr1-veolia-transport')
-        # bgp_neighbors = v_con.bgp_group_parms(16, ['asr1-veolia-transport'], bgp_sect)
-        # b = bgp_neighbors['asr1-veolia-transport']['neighbors']
-        # print json.dumps(v_con.bgp_neighbor_parms(20, b, bgp_group_sect))
-
-        vp_con = VplsParms(svc_sect)
-        vp_sect = vp_con.vpls_section('9001706' , svc_sect)
-        # print json.dumps(vp_con.sdp_using_list(vp_sect), indent=4)
-        l = vp_con.sdp_using_list(vp_sect)
-        print json.dumps(vp_con.sdp_using_parms(l, vp_sect), indent=4)
-        print json.dumps(vp_con.vpls_parms(['9001706'], vp_sect), indent=4)
 
